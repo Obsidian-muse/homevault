@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum RoomType {
+  BEDROOM
+  BATHROOM
+  KITCHEN
+  LIVING_ROOM
+  DINING_ROOM
+  GARAGE
+  BASEMENT
+  ATTIC
+  OFFICE
+  OUTDOOR
+  OTHER
+}
+
+enum AssetCategory {
+  ELECTRONICS
+  FURNITURE
+  APPLIANCE
+  PERSONAL
+  OTHER
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+}
+
+enum WarrantyStatus {
+  ACTIVE
+  EXPIRED
+  VOID
+}
+
+enum MaintenanceType {
+  REPAIR
+  CLEANING
+  INSPECTION
+  REPLACEMENT_PART
+  OTHER
+}
+
+// ─────────────────────────────────────────────
+// Auth (NextAuth.js)
+// ─────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─────────────────────────────────────────────
+// Core Domain
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String?
+  email         String    @unique
+  password      String?
+  image         String?
+  imagePublicId String?   @map("image_public_id")
+  phone         String?
+  address       String?
+  emailVerified DateTime? @map("email_verified")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  accounts Account[]
+  sessions Session[]
+  homes    Home[]
+
+  @@map("users")
+}
+
+model Home {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  addressLine1  String?  @map("address_line1")
+  addressLine2  String?  @map("address_line2")
+  city          String?
+  state         String?
+  postalCode    String?  @map("postal_code")
+  country       String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rooms Room[]
+
+  @@index([userId])
+  @@map("homes")
+}
+
+model Room {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  type      RoomType @default(OTHER)
+  floor     String?
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  homeId String @map("home_id") @db.Uuid
+  home   Home   @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  assets Asset[]
+
+  @@index([homeId])
+  @@map("rooms")
+}
+
+model Asset {
+  id             String         @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?
+  category       AssetCategory  @default(OTHER)
+  condition      AssetCondition @default(GOOD)
+  brand          String?
+  model          String?
+  serialNumber   String?        @map("serial_number")
+  purchaseDate   DateTime?      @map("purchase_date")
+  purchasePrice  Decimal?       @map("purchase_price") @db.Decimal(10, 2)
+  currentValue   Decimal?       @map("current_value") @db.Decimal(10, 2)
+  imageUrl       String?        @map("image_url")
+  imagePublicId  String?        @map("image_public_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  roomId String @map("room_id") @db.Uuid
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  warranty           Warranty?
+  maintenanceRecords MaintenanceRecord[]
+
+  @@index([roomId])
+  @@index([category])
+  @@map("assets")
+}
+
+model Warranty {
+  id             String         @id @default(uuid()) @db.Uuid
+  provider       String?
+  policyNumber   String?        @map("policy_number")
+  startDate      DateTime       @map("start_date")
+  expiryDate     DateTime       @map("expiry_date")
+  status         WarrantyStatus @default(ACTIVE)
+  documentUrl    String?        @map("document_url")
+  notes          String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  assetId String @unique @map("asset_id") @db.Uuid
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([expiryDate])
+  @@map("warranties")
+}
+
+model MaintenanceRecord {
+  id          String          @id @default(uuid()) @db.Uuid
+  type        MaintenanceType @default(OTHER)
+  title       String
+  description String?
+  performedAt DateTime        @map("performed_at")
+  cost        Decimal?        @db.Decimal(10, 2)
+  performedBy String?         @map("performed_by")
+  nextDueDate DateTime?       @map("next_due_date")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  assetId String @map("asset_id") @db.Uuid
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([performedAt])
+  @@map("maintenance_records")
+}
