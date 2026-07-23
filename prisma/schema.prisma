@@ -1,0 +1,190 @@
+// HomeVault database schema
+// Run `npm run db:migrate` after setting DATABASE_URL to create these tables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Auth
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  homes         Home[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum RoomType {
+  Bedroom
+  Bathroom
+  Kitchen
+  LivingRoom  @map("Living Room")
+  DiningRoom  @map("Dining Room")
+  Garage
+  Basement
+  Attic
+  Office
+  Outdoor
+  Other
+
+  @@map("room_type")
+}
+
+enum AssetCondition {
+  Excellent
+  Good
+  Fair
+  Poor
+
+  @@map("asset_condition")
+}
+
+enum WarrantyStatus {
+  Active
+  ExpiringSoon @map("Expiring Soon")
+  Expired
+
+  @@map("warranty_status")
+}
+
+enum MaintenanceType {
+  Inspection
+  Repair
+  Cleaning
+  Replacement
+  Service
+
+  @@map("maintenance_type")
+}
+
+// ─────────────────────────────────────────────
+// Core entities
+// ─────────────────────────────────────────────
+
+model Home {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name       String
+  address    String
+  city       String
+  type       String
+  image      String?
+  yearBuilt  Int?
+
+  rooms      Room[]
+  assets     Asset[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@map("homes")
+}
+
+model Room {
+  id         String   @id @default(cuid())
+  homeId     String
+  home       Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  name       String
+  type       RoomType
+
+  assets     Asset[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([homeId])
+  @@map("rooms")
+}
+
+model Asset {
+  id             String         @id @default(cuid())
+  homeId         String
+  home           Home           @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  roomId         String
+  room           Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  name           String
+  category       String
+  brand          String?
+  model          String?
+  condition      AssetCondition @default(Good)
+  serialNumber   String?
+  purchaseDate   DateTime?
+  purchasePrice  Float?
+  currentValue   Float?
+  notes          String?
+
+  imageUrl       String?
+  imagePublicId  String?
+
+  warranties     Warranty[]
+  maintenance    MaintenanceRecord[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([homeId])
+  @@index([roomId])
+  @@map("assets")
+}
+
+model Warranty {
+  id           String         @id @default(cuid())
+  assetId      String
+  asset        Asset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  provider     String
+  policyNumber String?
+  coverage     String?
+  startDate    DateTime
+  expiryDate   DateTime
+  status       WarrantyStatus @default(Active)
+  notes        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([assetId])
+  @@map("warranties")
+}
+
+model MaintenanceRecord {
+  id              String          @id @default(cuid())
+  assetId         String
+  asset           Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  type            MaintenanceType
+  date            DateTime
+  cost            Float           @default(0)
+  provider        String?
+  notes           String?
+  nextDueDate     DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([assetId])
+  @@map("maintenance_records")
+}
