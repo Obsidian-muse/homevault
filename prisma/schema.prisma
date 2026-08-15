@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  image        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  homes        Home[]
+
+  @@map("users")
+}
+
+model Home {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  address   String
+  city      String
+  type      String
+  image     String?
+  yearBuilt Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  assets    Asset[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rooms     Room[]
+
+  @@index([userId])
+  @@map("homes")
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  homeId    String
+  name      String
+  type      RoomType
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  assets    Asset[]
+  home      Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@index([homeId])
+  @@map("rooms")
+}
+
+model Asset {
+  id            String              @id @default(cuid())
+  homeId        String
+  roomId        String
+  name          String
+  category      String
+  brand         String?
+  model         String?
+  condition     AssetCondition      @default(Good)
+  serialNumber  String?
+  purchaseDate  DateTime?
+  purchasePrice Float?
+  currentValue  Float?
+  notes         String?
+  imageUrl      String?
+  imagePublicId String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  home          Home                @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room          Room                @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  maintenance   MaintenanceRecord[]
+  warranties    Warranty[]
+
+  @@index([homeId])
+  @@index([roomId])
+  @@map("assets")
+}
+
+model Warranty {
+  id           String         @id @default(cuid())
+  assetId      String
+  provider     String
+  policyNumber String?
+  coverage     String?
+  startDate    DateTime
+  expiryDate   DateTime
+  status       WarrantyStatus @default(Active)
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  asset        Asset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("warranties")
+}
+
+model MaintenanceRecord {
+  id          String          @id @default(cuid())
+  assetId     String
+  type        MaintenanceType
+  date        DateTime
+  cost        Float           @default(0)
+  provider    String?
+  notes       String?
+  nextDueDate DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  asset       Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("maintenance_records")
+}
+
+enum RoomType {
+  Bedroom
+  Bathroom
+  Kitchen
+  LivingRoom @map("Living Room")
+  DiningRoom @map("Dining Room")
+  Garage
+  Basement
+  Attic
+  Office
+  Outdoor
+  Other
+
+  @@map("room_type")
+}
+
+enum AssetCondition {
+  Excellent
+  Good
+  Fair
+  Poor
+
+  @@map("asset_condition")
+}
+
+enum WarrantyStatus {
+  Active
+  ExpiringSoon @map("Expiring Soon")
+  Expired
+
+  @@map("warranty_status")
+}
+
+enum MaintenanceType {
+  Inspection
+  Repair
+  Cleaning
+  Replacement
+  Service
+
+  @@map("maintenance_type")
+}
