@@ -858,7 +858,7 @@ function SmartHomeScene({
       <directionalLight position={[-6, 4, -4]} intensity={0.45} color={VIOLET} />
       <directionalLight position={[4, 2, -6]} intensity={0.3} color={PRIMARY} />
 
-      <Environment preset="city" />
+      {/* <Environment preset="city" /> */}
       <fog attach="fog" args={['#0f1115', 12, 24]} />
 
       <HouseGroup
